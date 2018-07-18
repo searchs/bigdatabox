@@ -1,3 +1,5 @@
+-- Test Database: PostGres
+
 SELECT last_name, count(1) AS pops FROM actor
 GROUP BY last_name
 ORDER BY pops desc;
