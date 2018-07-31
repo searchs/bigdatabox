@@ -1,0 +1,373 @@
+-- Rampup
+-- Create Views for common queries
+-- BQ Views are logical -not materialized
+-- Underlying query will execute
+ 
+
+SELECT * FROM [bigq-projects:babynames.babynames] LIMIT 10;
+
+SELECT name, count
+FROM [bigq-projects:babynames.babynames] 
+WHERE gender = 'M'
+ORDER BY count DESC LIMIT 10; 
+
+
+SELECT
+weight_pounds, state, year, gestation_weeks
+FROM [bigquery-public-data.samples.natality]
+ORDER BY weight_pounds DESC LIMIT 10;
+
+
+-- AGGREGATIONS
+-- With No Aggregation
+SELECT airline,
+    date,
+    departure_delay
+FROM 
+`bigquery-samples.airline_ontime_data.flights`
+WHERE
+    departure_delay > 0
+    AND departure_airport = 'LGA'
+GROUP BY airline
+ORDER BY airline DESC
+
+
+-- With Aggregation
+SELECT airline,
+    count(departure_delay)
+FROM 
+`bigquery-samples.airline_ontime_data.flights`
+WHERE
+    departure_delay > 0
+    AND departure_airport = 'LGA'
+    AND date = '2008-05-13'
+GROUP BY airline
+ORDER BY airline DESC
+
+
+-- Find Total Number of Flights and Number of 
+SELECT 
+    f.airline,
+    COUNT(f.departure_delay) AS total_flights,
+    SUM(IF(f.departure_delay > 0, 1,0)) as num_delayed
+FROM
+    `bigquery-samples.airline_ontime_data.flights`
+WHERE 
+    f.departure_airport = 'LGA'
+AND 
+    f.date = '2008-05-13'
+GROUP BY f.airline
+
+
+-- Get Delays on Rainy Days with JOIN
+
+SELECT 
+    CONCAT(CAST(year AS STRING), '-', LPAD(CAST(month AS STRING),2,0), LPAD(CAST(day AS STRING),2,0))
+FROM 
+`bigquery-samples.airline_ontime_data.flights`
+
+
+-- More GCP Stuff: Flights by Delay stats
+SELECT 
+    airline,
+    COUNT(departure_delay)
+FROM 
+    `bigquery-samples.airline_ontime_data.flights`
+WHERE departure_delay > 0
+    AND departure_airport = 'LGA'
+    AND date = "2008-05-13"
+GROUP BY
+    airline
+ORDER BY airline DESC
+
+
+-- More Aggregations:  Get all flights per day and number of delay flights per day
+SELECT 
+    f.airline,
+    COUNT(f.departure_delay) AS total_flights
+    SUM(IF(f.departure_delay > 0, 1,0)) AS num_delayed
+FROM 
+    `bigquery-samples.airline_ontime_data.flights` AS f
+WHERE f.departure_airport = 'LGA'
+    AND f.date = "2008-05-13"
+GROUP BY
+    f.airline
+ORDER BY f.airline DESC
+
+-- SubQueries and Joins
+-- Check another table for rainy days
+SELECT year, month, day
+FROM `bigquery-samples.weather_geo.gsod`
+WHERE
+    station_number = 725030 -- New York
+    AND total_precipitation > 0
+
+SELECT 
+    CONCAT(CAST(year AS STRING), '-', LPAD(CAST(month AS STRING),2,0), LPAD(CAST(day AS STRING),2,0))
+FROM 
+`bigquery-samples.weather_geo.gsod`    
+
+
+-- Create Complex Query
+SELECT 
+    f.airline,
+    COUNT(f.departure_delay) AS total_flights
+    SUM(IF(f.departure_delay > 0, 1,0)) AS num_delayed
+FROM 
+    `bigquery-samples.airline_ontime_data.flights` AS f
+
+JOIN (
+
+SELECT 
+    CONCAT(CAST(year AS STRING), '-', LPAD(CAST(month AS STRING),2,0), LPAD(CAST(day AS STRING),2,0))
+FROM `bigquery-samples.weather_geo.gsod`
+WHERE
+    station_number = 725030 -- New York
+    AND total_precipitation > 0
+
+) AS w
+ON w.rainyday = f.date
+WHERE f.departure_airport = 'LGA'
+    AND f.date = "2008-05-13"
+GROUP BY
+    f.airline
+ORDER BY f.airline DESC
+
+-- Find percentage of delayed flights
+SELECT 
+    airline,
+    num_delayed,
+    total_flights,
+    num_delayed/total_flights AS frac_delayed
+FROM 
+(
+SELECT 
+    f.airline,
+    COUNT(f.departure_delay) AS total_flights
+    SUM(IF(f.departure_delay > 0, 1,0)) AS num_delayed
+FROM 
+    `bigquery-samples.airline_ontime_data.flights` AS f
+
+JOIN (
+
+SELECT 
+    CONCAT(CAST(year AS STRING), '-', LPAD(CAST(month AS STRING),2,0), LPAD(CAST(day AS STRING),2,0))
+FROM `bigquery-samples.weather_geo.gsod`
+WHERE
+    station_number = 725030 -- New York
+    AND total_precipitation > 0
+
+) AS w
+ON w.rainyday = f.date
+WHERE f.departure_airport = 'LGA'
+    AND f.date = "2008-05-13"
+GROUP BY
+    f.airline
+ORDER BY 
+    f.airline DESC
+
+)
+ORDER BY 
+    frac_delayed DESC
+
+
+-- BQ Regular Expressions Sample
+-- Using Web logs
+SELECT  
+    SUM(views)
+FROM [bigquery-samples.wikimedia_pageviews.201112]
+
+
+-- Get Wikipedia specific results : Use Standard SQL 
+SELECT  
+    SUM(views), wikimedia_project
+FROM [bigquery-samples.wikimedia_pageviews.201112]
+WHERE wikimedia_project = "wp"
+GROUP BY wikimedia_project
+
+ -- Get titles that contain Red
+SELECT  
+    title,
+    SUM(views) views
+FROM  --multiple tables
+    [bigquery-samples.wikimedia_pageviews.201111],
+    [bigquery-samples.wikimedia_pageviews.201112]
+WHERE wikimedia_project = "wp"
+AND REGEXP_MATCH(title, 'Red.*t')
+GROUP BY title
+ORDER BY views DESC
+
+
+-- RegExp Version?
+SELECT  
+    title,
+    SUM(views) views
+FROM  --multiple tables
+    TABLE_QUERY([bigquery-samples.wikimedia_pageview],
+        'REGEXP_MATCH(table_id, r""2011[\d](2)")')
+WHERE wikimedia_project = "wp"
+AND REGEXP_MATCH(title, 'Red.*t')
+GROUP BY title
+ORDER BY views DESC
+
+
+ -- using WITH 
+-- Github Querying Task
+WITH 
+    commits AS (
+SELECT
+    author.email,
+    LOWER(REGEXP_EXTRACT(diff.new_path, r'\.([^\./\(~_ \- #]*)$')) lang,
+    diff.new_path AS path,
+    author.date
+FROM `bigquery-public-data.github_repos.commits`,
+    UNNEST(difference) diff
+WHERE 
+    EXTRACT(YEAR
+    FROM
+        author.date) = 2016
+
+)
+
+-- Use the 'commits' query
+SELECT 
+    lang,
+    COUNT(path) AS numcommits
+FROM 
+    commits
+WHERE
+    length(lang) < 8
+    AND lang IS NOT NULL
+    AND REGEXP_CONTAINS(lang, '[a-zA-Z]')
+GROUP BY
+    lang
+HAVING 
+    numcommits > 100
+ORDER BY 
+    numcommits DESC
+
+
+
+-- BIGQUERY FLASHCARD
+-- Data Partitioning
+-- Legacy SQL
+SELECT TIMESTAMP(_PARTITIONTIME), * FROM [PartitionedTablesDemo.Employee_Details] 
+
+-- Standard SQL
+#standardSQL
+SELECT CAST(_PARTITIONTIME as DATETIME), * FROM `PartitionedTablesDemo.Employee_Details` 
+
+-- Commandline Load Data
+```bq query --destination_table PartitionTaxiTables.trips_20150330 "SELECT * FROM [nyc-tlc:green.trips_2015] WHERE TIMESTAMP(pickup_datetime) between TIMESTAMP('2015-03-30 00:00:00 UTC') and TIMESTAMP('2015-03-30 23:59:59 UTC')"```
+
+SELECT * FROM [PartitionTaxiTables.trips_non_partition] 
+WHERE pickup_datetime between TIMESTAMP("2015-04-01 00:00:00") and TIMESTAMP("2015-04-02 23:59:59")
+
+SELECT * FROM [my-first-project-170319:PartitionTaxiTables.trips_partitioned] 
+WHERE _PARTITIONTIME BETWEEN TIMESTAMP("2015-04-01 00:00:00") and TIMESTAMP("2015-04-02 23:59:59")
+
+-- Get data from 2 partitions
+SELECT * 
+FROM [PartitionTaxiTables.trips_partitioned$20150401],[PartitionTaxiTables.trips_partitioned$20150402]
+
+
+-- Get Partitions Details in a table
+#legacySQL
+SELECT partition_id
+FROM [PartitionTaxiTables.trips_partitioned$__PARTITIONS_SUMMARY__]
+
+#standardSQL
+SELECT
+  DISTINCT _PARTITIONTIME as pt
+FROM
+  `PartitionTaxiTables.trips_partitioned`
+
+
+--   Table UNION
+#standardSQL
+SELECT MAX(EXTRACT(YEAR from pickup_datetime)) as TripYear, count(1) as TripCount FROM `bigquery-public-data.new_york.tlc_yellow_trips_2009`
+UNION ALL
+SELECT MAX(EXTRACT(YEAR from pickup_datetime)) as TripYear, count(1) as TripCount FROM `bigquery-public-data.new_york.tlc_yellow_trips_2010`
+UNION ALL 
+SELECT MAX(EXTRACT(YEAR from pickup_datetime)) as TripYear, count(1) as TripCount FROM `bigquery-public-data.new_york.tlc_yellow_trips_2011`
+UNION ALL
+SELECT MAX(EXTRACT(YEAR from pickup_datetime)) as TripYear, count(1) as TripCount FROM `bigquery-public-data.new_york.tlc_yellow_trips_2012`
+UNION ALL
+SELECT MAX(EXTRACT(YEAR from pickup_datetime)) as TripYear, count(1) as TripCount FROM `bigquery-public-data.new_york.tlc_yellow_trips_2013`
+UNION ALL
+SELECT MAX(EXTRACT(YEAR from pickup_datetime)) as TripYear, count(1) as TripCount FROM `bigquery-public-data.new_york.tlc_yellow_trips_2014`
+UNION ALL
+SELECT MAX(EXTRACT(YEAR from pickup_datetime)) as TripYear, count(1) as TripCount FROM `bigquery-public-data.new_york.tlc_yellow_trips_2015`
+UNION ALL
+SELECT MAX(EXTRACT(YEAR from pickup_datetime)) as TripYear, count(1) as TripCount FROM `bigquery-public-data.new_york.tlc_yellow_trips_2016`
+order by TripYear
+
+-- Another Implementation
+#standardSQL
+SELECT EXTRACT(YEAR from pickup_datetime) as TripYear, count(1) as TripCount FROM `bigquery-public-data.new_york.tlc_yellow_trips_*`
+GROUP BY TripYear
+ORDER BY TripYear
+
+-- OR using _TABLE_SUFFIX
+#standardSQL
+SELECT EXTRACT(YEAR from pickup_datetime) as TripYear, count(1) as TripCount 
+FROM `bigquery-public-data.new_york.tlc_yellow_trips_*`
+WHERE _TABLE_SUFFIX BETWEEN '2009' AND '2012'
+GROUP BY TripYear
+ORDER BY TripYear
+
+#standardSQL
+SELECT EXTRACT(YEAR from pickup_datetime) as TripYear, count(1) as TripCount 
+FROM `bigquery-public-data.new_york.tlc_yellow_trips_*`
+WHERE (_TABLE_SUFFIX = '2010'
+OR _TABLE_SUFFIX = '2016')
+GROUP BY TripYear
+ORDER BY TripYear
+
+
+-- Temporary Functions
+#standardSQL
+CREATE TEMPORARY FUNCTION GetOtherCharges(tipamount FLOAT64, tollsamount FLOAT64)
+RETURNS INT64
+LANGUAGE js AS """
+  return tipamount + tollsamount;
+""";
+
+SELECT vendor_id, GetOtherCharges( tip_amount, tolls_amount )
+FROM `bigquery-public-data.new_york.tlc_green_trips_2013`
+
+
+-- More Functions
+#standardSQL
+CREATE TEMPORARY FUNCTION GetOtherCharges(tipamount FLOAT64, tollsamount FLOAT64)
+AS ( 
+      (
+SELECT MAX(VAL1) FROM (
+SELECT tipamount AS VAL1
+UNION ALL
+SELECT tollsamount AS VAL1
+            )
+      )
+);
+
+SELECT vendor_id, GetOtherCharges( tip_amount, tolls_amount )
+FROM `bigquery-public-data.new_york.tlc_green_trips_2013`
+
+-- Querying Nested Columns
+#standardSQL
+SELECT EmployeeID, Employee_Names.FirstName, Employee_Names.LastName, Employee_Location 
+FROM `my-first-project-170319.HumanResourceDS.Employee_Nested_Demo`
+
+
+-- This query returns the list of employees who have worked in at least two countries:
+#standardSQL
+SELECT EmployeeID, Employee_Names.FirstName, Employee_Names.LastName
+FROM `my-first-project-170319.HumanResourceDS.Employee_Repeated_Demo`
+WHERE ARRAY_LENGTH(Employee_Location) > 1
+
+#legacySQL
+SELECT EmployeeID, Employee_Names.FirstName, Employee_Names.LastName, COUNT(Employee_Location.Country) WITHIN RECORD as countrycount
+FROM [HumanResourceDS.Employee_Repeated_Demo]
+
+
+
