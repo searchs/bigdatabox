@@ -8,6 +8,13 @@ Spark 2(local instance): spark-submit word_count.py "local[4]" wiki.txt  wc-coun
 
 Spark 2(cluster instance): spark-submit word_count.py spark://dlrc-headnode:7077 \
                         hdfs://dlrc-headnode/wiki-txt hdfs://dlrc-headnode/users/devola/wc-output
+                        
+    # Default Configuration (Basic)
+# from pyspark import SparkContext
+# from pyspark.sql import SparkSession
+# sc = SparkContext.getOrCreate()
+# spark = SparkSession(sc)
+        
 """
 
 if len(sys.argv) < 4:
