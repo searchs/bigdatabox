@@ -1,4 +1,5 @@
-/*WARNIGN: Tweak as required */
+/*WARNING: Tweak as required */
+-- Helpful: https://www.justanalytics.com/blog/hive-tez-query-optimization
 
 -- QUERY OPTIMISATION
 SET mapred.max.split.size=256000000;
