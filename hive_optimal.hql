@@ -1,4 +1,5 @@
 /*WARNING: Tweak as required */
+-- Hortonworks: https://community.hortonworks.com/articles/22419/hive-on-tez-performance-tuning-determining-reducer.html
 -- Helpful: https://www.justanalytics.com/blog/hive-tez-query-optimization
 
 -- QUERY OPTIMISATION
