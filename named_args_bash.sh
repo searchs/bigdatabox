@@ -6,29 +6,21 @@
 echo "Adhoc Processing starts...."
 echo date
 
-while getopts d:l:f option 
-do 
- case "${option}" 
- in 
- d) RUNDATE=${OPTARG};; 
- l) LOOKBACK=${OPTARG};; 
- f) FILENAME=${OPTARG};; 
- esac 
-done 
- 
-echo "Date:"$RUNDATE 
-echo "Lookback:"$LOOKBACK
-echo "Filename:"$FILENAME
+while getopts d:l:f: option
+do
+ case "${option}"
+ in
+ d) process_date=${OPTARG};;
+ l) lookback=${OPTARG};;
+ f) filename=${OPTARG};;
+ esac
+done
 
-table_date=$(date -d "$RUNDATE -2 days" +'%Y%m%d')
-process_date=$RUNDATE
-
-lookback=$LOOKBACK
-filename=$FILENAME
+table_date=$(date -d "$process_date -2 days" +'%Y%m%d')
 
 echo "Process Date: $process_date"
 echo "Table Date: $table_date"
-echo "File name: $filename"
+echo "File Name: $filename"
 echo "Lookback Days: $lookback"
 
 spark-submit --deploy-mode client --executor-memory 4G --num-executors 20 --py-files /usr/bin/pyspark /home/$USER/scripts/adhocs/ingest_data.py -d=$process_date  -t=$table_date -f=$filename
