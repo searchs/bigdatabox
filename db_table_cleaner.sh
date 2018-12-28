@@ -18,8 +18,8 @@ done
 
 process_date=$(date --utc +'%Y%m%d')
 
-echo "Process Date: $process_date"
-echo "Lookback Days: $lookback"
+echo -e "Process Date: $process_date \n"
+echo -e "Lookback Days: $lookback \n"
 
 #while loop using the lookback as the limit
 COUNTER=0
@@ -30,6 +30,6 @@ COUNTER=0
              hive -hiveconf cleanup_date=$cleanup_date -f /app/$USER/scripts/adhocs/db_cleanup.hql
              let COUNTER=COUNTER+1
          done
-echo "================================================================"
-echo "End of Cleanup of Reports Redundant tables. $(date --utc)"
-echo "================================================================"
+echo -e "================================================================\n"
+echo -e "End of Cleanup of Reports Redundant tables. $(date --utc) \n"
+echo -e "================================================================\n"
