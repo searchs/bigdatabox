@@ -20,6 +20,7 @@ set tez.reduce.memory.mb=8192;
 set hive.tez.container.size=8192;
 set hive.tez.java.opts=-Xmx8192m;
 
+-- MAP REDUCE CONFIG
 set mapreduce.task.timeout=1200000;
 set mapreduce.map.memory.mb=5120;
 set mapreduce.reduce.memory.mb=10240;
