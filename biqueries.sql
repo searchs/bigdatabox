@@ -133,3 +133,167 @@ SELECT SUM(p3.amount)
 FROM payment p3
 	WHERE p3.customer_id = p.customer_id
 ) > 100;
+
+
+-- BigQuery Analytics
+-- Qwiklabs Sessions
+-- Find Duplicate values
+-- NUGGETS:
+-- In your own datasets, even if you have a unique key, it is still beneficial to 
+-- confirm the uniqueness of the rows with COUNT, GROUP BY, and HAVING before you 
+-- begin your analysis.
+
+#standardSQL
+SELECT COUNT(*) as num_duplicate_rows, * FROM
+`data-to-insights.ecommerce.all_sessions_raw`
+GROUP BY fullVisitorId,
+            channelGrouping,
+            time, 
+            country,
+            city,
+            totalTransactionRevenue,
+            transactions,
+            timeOnSite,
+            pageviews, 
+            sessionQualityDim,
+            date,
+            visitId,
+            type,
+            productRefundAmount,
+            productQuantity, 
+            productPrice, productRevenue, productSKU, v2ProductName, v2ProductCategory, 
+productVariant, currencyCode, itemQuantity, itemRevenue, transactionRevenue, 
+transactionId, pageTitle, searchKeyword, pagePathLevel1, eCommerceAction_type, 
+eCommerceAction_step, eCommerceAction_option
+HAVING num_duplicate_rows > 1;
+
+
+-- Confirm that no duplicates exist
+#standardSQL
+# schema: https://support.google.com/analytics/answer/3437719?hl=en
+SELECT
+fullVisitorId, # the unique visitor ID
+visitId, # a visitor can have multiple visits
+date, # session date stored as string YYYYMMDD
+time, # time of the individual site hit  (can be 0 to many per visitor session)
+v2ProductName, # not unique since a product can have variants like Color
+productSKU, # unique for each product
+type, # a visitor can visit Pages and/or can trigger Events (even at the same time)
+eCommerceAction_type, # maps to ‘add to cart', ‘completed checkout'
+eCommerceAction_step,
+eCommerceAction_option,
+  transactionRevenue, # revenue of the order
+  transactionId, # unique identifier for revenue bearing transaction
+COUNT(*) as row_count
+FROM
+`data-to-insights.ecommerce.all_sessions`
+GROUP BY 1,2,3 ,4, 5, 6, 7, 8, 9, 10,11,12
+HAVING row_count > 1 # find duplicates
+
+-- Note: In SQL, you can GROUP BY or ORDER BY the index of the column like using "GROUP BY 1" instead of "GROUP BY fullVisitorId"
+
+
+
+-- determines the total views by counting product_views and the number of unique visitors by counting fullVisitorID
+#standardSQL
+SELECT
+  COUNT(*) AS product_views,
+  COUNT(DISTINCT fullVisitorId) AS unique_visitors
+FROM `data-to-insights.ecommerce.all_sessions`;
+
+-- Now write a query that shows total unique visitors(fullVisitorID) by the referring site (channelGrouping):
+#standardSQL
+SELECT
+  COUNT(DISTINCT fullVisitorId) AS unique_visitors,
+  channelGrouping
+FROM `data-to-insights.ecommerce.all_sessions`
+GROUP BY channelGrouping
+ORDER BY channelGrouping DESC;
+
+-- list all the unique product names (v2ProductName) alphabetically:
+#standardSQL
+SELECT
+  (v2ProductName) AS ProductName
+FROM `data-to-insights.ecommerce.all_sessions`
+GROUP BY ProductName
+ORDER BY ProductName
+
+
+-- list the five products with the most views (product_views) from all visitors (include people who have viewed the same product more than once)
+#standardSQL
+SELECT
+  COUNT(*) AS product_views,
+  (v2ProductName) AS ProductName
+FROM `data-to-insights.ecommerce.all_sessions`
+WHERE type = 'PAGE'
+GROUP BY v2ProductName
+ORDER BY product_views DESC
+LIMIT 5;
+
+
+-- Now refine the query to no longer double-count product views for visitors who have viewed a product many times. Each distinct product view should only count once per visitor.
+WITH unique_product_views_by_person AS (
+-- find each unique product viewed by each visitor
+SELECT 
+ fullVisitorId,
+ (v2ProductName) AS ProductName
+FROM `data-to-insights.ecommerce.all_sessions`
+WHERE type = 'PAGE'
+GROUP BY fullVisitorId, v2ProductName )
+
+
+-- aggregate the top viewed products and sort them
+SELECT
+  COUNT(*) AS unique_view_count,
+  ProductName 
+FROM unique_product_views_by_person
+GROUP BY ProductName
+ORDER BY unique_view_count DESC
+LIMIT 5
+
+
+-- expand your previous query to include the total number of distinct products ordered and the total number of total units ordered (productQuantity)
+#standardSQL
+SELECT
+  COUNT(*) AS product_views,
+  COUNT(productQuantity) AS orders,
+  SUM(productQuantity) AS quantity_product_ordered,
+  v2ProductName
+FROM `data-to-insights.ecommerce.all_sessions`
+WHERE type = 'PAGE'
+GROUP BY v2ProductName
+ORDER BY product_views DESC
+LIMIT 5;
+
+
+#standardSQL
+SELECT
+  COUNT(*) AS product_views,
+  COUNT(productQuantity) AS orders,
+  SUM(productQuantity) AS quantity_product_ordered,
+  SUM(productQuantity) / COUNT(productQuantity) AS avg_per_order,
+  (v2ProductName) AS ProductName
+FROM `data-to-insights.ecommerce.all_sessions`
+WHERE type = 'PAGE'
+GROUP BY v2ProductName
+ORDER BY product_views DESC
+LIMIT 5;
+
+
+--Expand the query to include the average amount of product per order (total number of units ordered/total number of orders, or SUM(productQuantity)/COUNT(productQuantity)).
+
+#standardSQL
+SELECT
+  COUNT(*) AS product_views,
+  COUNT(productQuantity) AS orders,
+  SUM(productQuantity) AS quantity_product_ordered,
+  SUM(productQuantity) / COUNT(productQuantity) AS avg_per_order,
+  (v2ProductName) AS ProductName
+FROM `data-to-insights.ecommerce.all_sessions`
+WHERE type = 'PAGE'
+GROUP BY v2ProductName
+ORDER BY product_views DESC
+LIMIT 5;
+
+
+
