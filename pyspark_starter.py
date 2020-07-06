@@ -49,3 +49,19 @@ df = spark.read.csv(file_path, header=True)
 df.printSchema()
 
 df.select('neighbourhood').distinct().show(10, False)
+
+
+
+def repartition(
+    df: DataFrame, 
+    min_partitions: int, 
+    max_partitions: int
+) -> DataFrame:
+        """Apply repartition or coalesce to DataFrame based on project defaults"""
+    num_partitions = df.rdd.getNumPartitions()
+    if(num_partitions < min_partitions):
+        df = df.repartition(min_partitions)
+    elif(num_partitions > max_partitions):
+        df = df.coalesce(max_partitions)
+    return df
+
